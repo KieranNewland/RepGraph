@@ -1,0 +1,29 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{6244E55F-4983-E272-7473-3B98E39AAB87}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "RepGraph",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		},
+		{
+			"Name": "ReplicationGraph",
+			"Enabled": true
+		}
+	]
+}
