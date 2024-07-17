@@ -30,6 +30,9 @@ class UTutorialConnectionGraph : public UNetReplicationGraphConnection
 
 public:
 	UPROPERTY()
+	UReplicationGraphNode_AlwaysRelevant_ForConnection* AlwaysRelevantForConnectionNode;
+	
+	UPROPERTY()
 	UReplicationGraphNode_AlwaysRelevant_ForTeam* TeamConnectionNode;
 
 	int32 Team = -1;

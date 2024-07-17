@@ -87,6 +87,9 @@ void UTutorialRepGraph::InitConnectionGraphNodes(UNetReplicationGraphConnection*
 
 	if (ensure(TutorialRepGraph))
 	{
+		TutorialRepGraph->AlwaysRelevantForConnectionNode = CreateNewNode<UReplicationGraphNode_AlwaysRelevant_ForConnection>();
+		AddConnectionGraphNode(TutorialRepGraph->AlwaysRelevantForConnectionNode, ConnectionManager);
+		
 		TutorialRepGraph->TeamConnectionNode = CreateNewNode<UReplicationGraphNode_AlwaysRelevant_ForTeam>();
 		AddConnectionGraphNode(TutorialRepGraph->TeamConnectionNode, ConnectionManager);
 	}
@@ -145,7 +148,14 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 	}
 	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
-		ConnectionGraph->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
+		if (ActorInfo.Actor->bOnlyRelevantToOwner)
+		{
+			ConnectionGraph->AlwaysRelevantForConnectionNode->NotifyAddNetworkActor(ActorInfo);
+		}
+		else
+		{
+			ConnectionGraph->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
+		}
 	}
 	else if(ActorInfo.Actor->GetNetOwner())
 	{
@@ -161,7 +171,14 @@ void UTutorialRepGraph::RouteRemoveNetworkActorToNodes(const FNewReplicatedActor
 	}
 	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
-		ConnectionGraph->TeamConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
+		if (ActorInfo.Actor->bOnlyRelevantToOwner)
+		{
+			ConnectionGraph->AlwaysRelevantForConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
+		}
+		else
+		{
+			ConnectionGraph->TeamConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
+		}
 	}
 	else if (ActorInfo.Actor->GetNetOwner())
 	{
