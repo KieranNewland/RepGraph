@@ -1,5 +1,8 @@
 #include "TutorialRepGraph.h"
 
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+
 UReplicationGraphNode_AlwaysRelevant_WithPending::UReplicationGraphNode_AlwaysRelevant_WithPending()
 {
 	bRequiresPrepareForReplicationCall = true;
@@ -135,7 +138,12 @@ void UTutorialRepGraph::ResetGameWorldState()
 void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInfo& ActorInfo,
                                                     FGlobalActorReplicationInfo& GlobalInfo)
 {
-	if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
+	// All clients must receive game states and player states
+	if (ActorInfo.Class->IsChildOf(AGameStateBase::StaticClass()) || ActorInfo.Class->IsChildOf(APlayerState::StaticClass()))
+	{
+		AlwaysRelevantNode->NotifyAddNetworkActor(ActorInfo);
+	}
+	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
 		ConnectionGraph->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
 	}
@@ -147,7 +155,11 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 
 void UTutorialRepGraph::RouteRemoveNetworkActorToNodes(const FNewReplicatedActorInfo& ActorInfo)
 {
-	if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
+	if (ActorInfo.Class->IsChildOf(AGameStateBase::StaticClass()) || ActorInfo.Class->IsChildOf(APlayerState::StaticClass()))
+	{
+		AlwaysRelevantNode->NotifyRemoveNetworkActor(ActorInfo);
+	}
+	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
 		ConnectionGraph->TeamConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
 	}
