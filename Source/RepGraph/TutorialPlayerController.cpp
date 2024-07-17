@@ -2,11 +2,3 @@
 
 
 #include "TutorialPlayerController.h"
-
-
-void ATutorialPlayerController::OnRep_PlayerState()
-{
-	Super::OnRep_PlayerState();
-
-	OnPlayerStateChanged.Broadcast(PlayerState);
-}

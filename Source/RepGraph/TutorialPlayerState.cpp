@@ -1,5 +1,6 @@
 #include "TutorialPlayerState.h"
 
+#include "TutorialRepGraph.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -10,6 +11,17 @@ void ATutorialPlayerState::BeginPlay()
 	if (HasAuthority())
 	{
 		Team = FMath::RandBool() ? 0 : 1;
+		
+		if (const UWorld* World = GetWorld())
+		{
+			if (const UNetDriver* NetworkDriver = World->GetNetDriver())
+			{
+				if (UTutorialRepGraph* RepGraph = NetworkDriver->GetReplicationDriver<UTutorialRepGraph>())
+				{
+					RepGraph->SetTeamForPlayerController(GetPlayerController(), Team);
+				}
+			}
+		}
 	}
 }
 
