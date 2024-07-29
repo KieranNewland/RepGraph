@@ -36,11 +36,15 @@ public:
 	UReplicationGraphNode_AlwaysRelevant_ForTeam* TeamConnectionNode;
 
 	int32 Team = -1;
+
+	UPROPERTY()
+	TWeakObjectPtr<APawn> Pawn = nullptr;
 };
 
 struct FTeamConnectionListMap : TMap<int32, TArray<UTutorialConnectionGraph*>>
 {
 	TArray<UTutorialConnectionGraph*>* GetConnectionArrayForTeam(int32 Team);
+	TArray<UTutorialConnectionGraph*> GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team);
 	
 	void AddConnectionToTeam(int32 Team, UTutorialConnectionGraph* ConnManager);
 	void RemoveConnectionFromTeam(int32 Team, UTutorialConnectionGraph* ConnManager);

@@ -30,6 +30,14 @@ void UReplicationGraphNode_AlwaysRelevant_ForTeam::GatherActorListsForConnection
 				TeamMember->TeamConnectionNode->GatherActorListsForConnectionDefault(Params);
 			}
 		}
+
+		// Add all visible non-team actors to the list
+		const TArray<UTutorialConnectionGraph*>& NonTeamConnections = ReplicationGraph->TeamConnectionListMap.GetVisibleConnectionArrayForNonTeam(ConnectionGraph->Pawn.Get(), ConnectionGraph->Team);
+
+		for (const UTutorialConnectionGraph* NonTeamMember : NonTeamConnections)
+		{
+			NonTeamMember->TeamConnectionNode->GatherActorListsForConnectionDefault(Params);
+		}
 	}
 	else
 	{
@@ -46,6 +54,69 @@ void UReplicationGraphNode_AlwaysRelevant_ForTeam::GatherActorListsForConnection
 TArray<UTutorialConnectionGraph*>* FTeamConnectionListMap::GetConnectionArrayForTeam(int32 Team)
 {
 	return Find(Team);
+}
+
+TArray<UTutorialConnectionGraph*> FTeamConnectionListMap::GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team)
+{	
+	TArray<UTutorialConnectionGraph*> NonTeamConnections;
+
+	if (!IsValid(Pawn))
+	{
+		return NonTeamConnections;
+	}
+
+	// Setup query params and ignore all team members
+	TArray<UTutorialConnectionGraph*>* TeamMembers = GetConnectionArrayForTeam(Team);
+		
+	FCollisionQueryParams TraceParams;
+	if (TeamMembers)
+	{
+		for (const UTutorialConnectionGraph* ConnectionGraph : *TeamMembers)
+		{
+			TraceParams.AddIgnoredActor(ConnectionGraph->Pawn.Get());
+		}
+	}
+	else
+	{
+		TraceParams.AddIgnoredActor(Pawn);
+	}
+
+	// Iterate over all teams that do not match the input team
+	TArray<int32> Teams;
+	GetKeys(Teams);
+
+	const UWorld* World = Pawn->GetWorld();
+	const FVector TraceOffset = FVector(0.0f, 0.0f, 180.0f);
+	const FVector TraceStart = Pawn->GetActorLocation() + TraceOffset;
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		const int32 TeamID = Teams[i];
+		if (TeamID != Team)
+		{
+			const TArray<UTutorialConnectionGraph*>* OtherTeamMembers = GetConnectionArrayForTeam(TeamID);
+
+			if (OtherTeamMembers)
+			{
+				for (UTutorialConnectionGraph* ConnectionGraph : *OtherTeamMembers)
+				{
+					if (!ConnectionGraph->Pawn.IsValid())
+					{
+						continue;
+					}
+					
+					// Raycast between our pawn and the other. If we hit anything then we do not have line of sight
+					FHitResult OutHit;
+					const FVector TraceEnd = ConnectionGraph->Pawn.Get()->GetActorLocation() + TraceOffset;
+					if (!World->LineTraceSingleByChannel(OutHit, TraceStart, TraceEnd, ECC_GameTraceChannel1, TraceParams))
+					{
+						NonTeamConnections.Add(ConnectionGraph);		
+					}
+				}
+			}
+		}
+	}
+
+	return NonTeamConnections;
 }
 
 void FTeamConnectionListMap::AddConnectionToTeam(int32 Team, UTutorialConnectionGraph* ConnManager)
@@ -144,9 +215,9 @@ void UTutorialRepGraph::ResetGameWorldState()
 	PendingConnectionActors.Reset();
 	PendingTeamRequests.Reset();
 
-	auto EmptyConnectionNode = [](TArray<TObjectPtr<UNetReplicationGraphConnection>>& Connections)
+	auto EmptyConnectionNode = [](TArray<TObjectPtr<UNetReplicationGraphConnection>>& GraphConnections)
 	{
-		for (UNetReplicationGraphConnection* GraphConnection : Connections)
+		for (UNetReplicationGraphConnection* GraphConnection : GraphConnections)
 		{
 			if (const UTutorialConnectionGraph* TutorialConnectionGraph = Cast<UTutorialConnectionGraph>(GraphConnection))
 			{
@@ -170,7 +241,7 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 		AlwaysRelevantNode->NotifyAddNetworkActor(ActorInfo);
 	}
 	// If not we see if it belongs to a connection
-	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
+	else if (UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
 		if (ActorInfo.Actor->bOnlyRelevantToOwner)
 		{
@@ -179,6 +250,11 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 		else
 		{
 			ConnectionGraph->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
+
+			if (APawn* Pawn = Cast<APawn>(ActorInfo.GetActor()))
+			{
+				ConnectionGraph->Pawn = Pawn;
+			}
 		}
 	}
 	else if(ActorInfo.Actor->GetNetOwner())
