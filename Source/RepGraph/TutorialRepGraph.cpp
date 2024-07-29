@@ -5,6 +5,7 @@
 
 UReplicationGraphNode_AlwaysRelevant_WithPending::UReplicationGraphNode_AlwaysRelevant_WithPending()
 {
+	// Call PrepareForReplication before replication once per frame
 	bRequiresPrepareForReplicationCall = true;
 }
 
@@ -58,7 +59,8 @@ void FTeamConnectionListMap::RemoveConnectionFromTeam(int32 Team, UTutorialConne
 	if (TArray<UTutorialConnectionGraph*>* TeamList = Find(Team))
 	{
 		TeamList->RemoveSwap(ConnManager);
-		
+
+		// Remove the team from the map if there are no more connections
 		if (TeamList->Num() == 0)
 		{
 			Remove(Team);
@@ -68,6 +70,7 @@ void FTeamConnectionListMap::RemoveConnectionFromTeam(int32 Team, UTutorialConne
 
 UTutorialRepGraph::UTutorialRepGraph()
 {
+	// Specify the connection graph class to use
 	ReplicationConnectionManagerClass = UTutorialConnectionGraph::StaticClass();
 }
 
@@ -75,6 +78,7 @@ void UTutorialRepGraph::InitGlobalGraphNodes()
 {
 	Super::InitGlobalGraphNodes();
 
+	// Create the always relevant node
 	AlwaysRelevantNode = CreateNewNode<UReplicationGraphNode_AlwaysRelevant_WithPending>();
 	AddGlobalGraphNode(AlwaysRelevantNode);
 }
@@ -82,7 +86,8 @@ void UTutorialRepGraph::InitGlobalGraphNodes()
 void UTutorialRepGraph::InitConnectionGraphNodes(UNetReplicationGraphConnection* ConnectionManager)
 {
 	Super::InitConnectionGraphNodes(ConnectionManager);
-	
+
+	// Create the connection graph for the incoming connection
 	UTutorialConnectionGraph* TutorialRepGraph = Cast<UTutorialConnectionGraph>(ConnectionManager);
 
 	if (ensure(TutorialRepGraph))
@@ -111,11 +116,13 @@ void UTutorialRepGraph::RemoveClientConnection(UNetConnection* NetConnection)
 			{
 				ensure(!bFound);
 
+				// Remove the connection from the team node if the team is valid
 				if (ConnectionManager->Team != -1)
 				{
 					TeamConnectionListMap.RemoveConnectionFromTeam(ConnectionManager->Team, ConnectionManager);
 				}
 
+				// Also remove it from the input list
 				List.RemoveAtSwap(idx, 1, false);
 				bFound = true;
 			}
@@ -136,6 +143,22 @@ void UTutorialRepGraph::ResetGameWorldState()
 
 	PendingConnectionActors.Reset();
 	PendingTeamRequests.Reset();
+
+	auto EmptyConnectionNode = [](TArray<TObjectPtr<UNetReplicationGraphConnection>>& Connections)
+	{
+		for (UNetReplicationGraphConnection* GraphConnection : Connections)
+		{
+			if (const UTutorialConnectionGraph* TutorialConnectionGraph = Cast<UTutorialConnectionGraph>(GraphConnection))
+			{
+				// Clear out all always relevant actors
+				// Seamless travel means that the team connections will still be relevant due to the controllers not being destroyed
+				TutorialConnectionGraph->AlwaysRelevantForConnectionNode->NotifyResetAllNetworkActors();
+			}
+		}
+	};
+
+	EmptyConnectionNode(PendingConnections);
+	EmptyConnectionNode(Connections);
 }
 
 void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInfo& ActorInfo,
@@ -146,6 +169,7 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 	{
 		AlwaysRelevantNode->NotifyAddNetworkActor(ActorInfo);
 	}
+	// If not we see if it belongs to a connection
 	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
 	{
 		if (ActorInfo.Actor->bOnlyRelevantToOwner)
@@ -159,6 +183,7 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 	}
 	else if(ActorInfo.Actor->GetNetOwner())
 	{
+		// Add to PendingConnectionActors if the net connection is not ready yet
 		PendingConnectionActors.Add(ActorInfo.GetActor());
 	}
 }
@@ -195,11 +220,13 @@ void UTutorialRepGraph::SetTeamForPlayerController(APlayerController* PlayerCont
 			const int32 CurrentTeam = ConnectionGraph->Team;
 			if (CurrentTeam != Team)
 			{
+				// Remove the connection to the old team list
 				if (CurrentTeam != -1)
 				{
 					TeamConnectionListMap.RemoveConnectionFromTeam(CurrentTeam, ConnectionGraph);
 				}
 
+				// Add the graph to the new team list
 				if (Team != -1)
 				{
 					TeamConnectionListMap.AddConnectionToTeam(Team, ConnectionGraph);
@@ -209,6 +236,7 @@ void UTutorialRepGraph::SetTeamForPlayerController(APlayerController* PlayerCont
 		}
 		else
 		{
+			// Add to PendingTeamRequests if the net connection is not ready yet
 			PendingTeamRequests.Emplace(Team, PlayerController);
 		}
 	}
@@ -216,6 +244,7 @@ void UTutorialRepGraph::SetTeamForPlayerController(APlayerController* PlayerCont
 
 void UTutorialRepGraph::HandlePendingActorsAndTeamRequests()
 {
+	// Setup all pending team requests
 	if(PendingTeamRequests.Num() > 0)
 	{
 		TArray<TTuple<int32, APlayerController*>> TempRequests = MoveTemp(PendingTeamRequests);
@@ -228,7 +257,8 @@ void UTutorialRepGraph::HandlePendingActorsAndTeamRequests()
 			}
 		}
 	}
-	
+
+	// Set up all pending connections
 	if (PendingConnectionActors.Num() > 0)
 	{
 		TArray<AActor*> PendingActors = MoveTemp(PendingConnectionActors);
