@@ -20,21 +20,21 @@ void UReplicationGraphNode_AlwaysRelevant_ForTeam::GatherActorListsForConnection
 {
 	// Get all other team members with the same team ID from ReplicationGraph->TeamConnectionListMap
 	UTutorialRepGraph* ReplicationGraph = Cast<UTutorialRepGraph>(GetOuter());
-	const UTutorialConnectionGraph* ConnectionGraph = Cast<UTutorialConnectionGraph>(&Params.ConnectionManager);
-	if (ReplicationGraph && ConnectionGraph && ConnectionGraph->Team != -1)
+	const UTutorialConnectionManager* ConnectionManager = Cast<UTutorialConnectionManager>(&Params.ConnectionManager);
+	if (ReplicationGraph && ConnectionManager && ConnectionManager->Team != -1)
 	{
-		if (TArray<UTutorialConnectionGraph*>* TeamConnections = ReplicationGraph->TeamConnectionListMap.GetConnectionArrayForTeam(ConnectionGraph->Team))
+		if (TArray<UTutorialConnectionManager*>* TeamConnections = ReplicationGraph->TeamConnectionListMap.GetConnectionArrayForTeam(ConnectionManager->Team))
 		{
-			for (const UTutorialConnectionGraph* TeamMember : *TeamConnections)
+			for (const UTutorialConnectionManager* TeamMember : *TeamConnections)
 			{
 				TeamMember->TeamConnectionNode->GatherActorListsForConnectionDefault(Params);
 			}
 		}
 
 		// Add all visible non-team actors to the list
-		const TArray<UTutorialConnectionGraph*>& NonTeamConnections = ReplicationGraph->TeamConnectionListMap.GetVisibleConnectionArrayForNonTeam(ConnectionGraph->Pawn.Get(), ConnectionGraph->Team);
+		const TArray<UTutorialConnectionManager*>& NonTeamConnections = ReplicationGraph->TeamConnectionListMap.GetVisibleConnectionArrayForNonTeam(ConnectionManager->Pawn.Get(), ConnectionManager->Team);
 
-		for (const UTutorialConnectionGraph* NonTeamMember : NonTeamConnections)
+		for (const UTutorialConnectionManager* NonTeamMember : NonTeamConnections)
 		{
 			NonTeamMember->TeamConnectionNode->GatherActorListsForConnectionDefault(Params);
 		}
@@ -51,14 +51,14 @@ void UReplicationGraphNode_AlwaysRelevant_ForTeam::GatherActorListsForConnection
 	Super::GatherActorListsForConnection(Params);
 }
 
-TArray<UTutorialConnectionGraph*>* FTeamConnectionListMap::GetConnectionArrayForTeam(int32 Team)
+TArray<UTutorialConnectionManager*>* FTeamConnectionListMap::GetConnectionArrayForTeam(int32 Team)
 {
 	return Find(Team);
 }
 
-TArray<UTutorialConnectionGraph*> FTeamConnectionListMap::GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team)
+TArray<UTutorialConnectionManager*> FTeamConnectionListMap::GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team)
 {	
-	TArray<UTutorialConnectionGraph*> NonTeamConnections;
+	TArray<UTutorialConnectionManager*> NonTeamConnections;
 
 	if (!IsValid(Pawn))
 	{
@@ -66,14 +66,14 @@ TArray<UTutorialConnectionGraph*> FTeamConnectionListMap::GetVisibleConnectionAr
 	}
 
 	// Setup query params and ignore all team members
-	TArray<UTutorialConnectionGraph*>* TeamMembers = GetConnectionArrayForTeam(Team);
+	TArray<UTutorialConnectionManager*>* TeamMembers = GetConnectionArrayForTeam(Team);
 		
 	FCollisionQueryParams TraceParams;
 	if (TeamMembers)
 	{
-		for (const UTutorialConnectionGraph* ConnectionGraph : *TeamMembers)
+		for (const UTutorialConnectionManager* ConnectionManager : *TeamMembers)
 		{
-			TraceParams.AddIgnoredActor(ConnectionGraph->Pawn.Get());
+			TraceParams.AddIgnoredActor(ConnectionManager->Pawn.Get());
 		}
 	}
 	else
@@ -93,23 +93,23 @@ TArray<UTutorialConnectionGraph*> FTeamConnectionListMap::GetVisibleConnectionAr
 		const int32 TeamID = Teams[i];
 		if (TeamID != Team)
 		{
-			const TArray<UTutorialConnectionGraph*>* OtherTeamMembers = GetConnectionArrayForTeam(TeamID);
+			const TArray<UTutorialConnectionManager*>* OtherTeamMembers = GetConnectionArrayForTeam(TeamID);
 
 			if (OtherTeamMembers)
 			{
-				for (UTutorialConnectionGraph* ConnectionGraph : *OtherTeamMembers)
+				for (UTutorialConnectionManager* ConnectionManager : *OtherTeamMembers)
 				{
-					if (!ConnectionGraph->Pawn.IsValid())
+					if (!ConnectionManager->Pawn.IsValid())
 					{
 						continue;
 					}
 					
 					// Raycast between our pawn and the other. If we hit anything then we do not have line of sight
 					FHitResult OutHit;
-					const FVector TraceEnd = ConnectionGraph->Pawn.Get()->GetActorLocation() + TraceOffset;
+					const FVector TraceEnd = ConnectionManager->Pawn.Get()->GetActorLocation() + TraceOffset;
 					if (!World->LineTraceSingleByChannel(OutHit, TraceStart, TraceEnd, ECC_GameTraceChannel1, TraceParams))
 					{
-						NonTeamConnections.Add(ConnectionGraph);		
+						NonTeamConnections.Add(ConnectionManager);		
 					}
 				}
 			}
@@ -119,15 +119,15 @@ TArray<UTutorialConnectionGraph*> FTeamConnectionListMap::GetVisibleConnectionAr
 	return NonTeamConnections;
 }
 
-void FTeamConnectionListMap::AddConnectionToTeam(int32 Team, UTutorialConnectionGraph* ConnManager)
+void FTeamConnectionListMap::AddConnectionToTeam(int32 Team, UTutorialConnectionManager* ConnManager)
 {
-	TArray<UTutorialConnectionGraph*>& TeamList = FindOrAdd(Team);
+	TArray<UTutorialConnectionManager*>& TeamList = FindOrAdd(Team);
 	TeamList.Add(ConnManager);
 }
 
-void FTeamConnectionListMap::RemoveConnectionFromTeam(int32 Team, UTutorialConnectionGraph* ConnManager)
+void FTeamConnectionListMap::RemoveConnectionFromTeam(int32 Team, UTutorialConnectionManager* ConnManager)
 {
-	if (TArray<UTutorialConnectionGraph*>* TeamList = Find(Team))
+	if (TArray<UTutorialConnectionManager*>* TeamList = Find(Team))
 	{
 		TeamList->RemoveSwap(ConnManager);
 
@@ -142,7 +142,7 @@ void FTeamConnectionListMap::RemoveConnectionFromTeam(int32 Team, UTutorialConne
 UTutorialRepGraph::UTutorialRepGraph()
 {
 	// Specify the connection graph class to use
-	ReplicationConnectionManagerClass = UTutorialConnectionGraph::StaticClass();
+	ReplicationConnectionManagerClass = UTutorialConnectionManager::StaticClass();
 }
 
 void UTutorialRepGraph::InitGlobalGraphNodes()
@@ -159,7 +159,7 @@ void UTutorialRepGraph::InitConnectionGraphNodes(UNetReplicationGraphConnection*
 	Super::InitConnectionGraphNodes(ConnectionManager);
 
 	// Create the connection graph for the incoming connection
-	UTutorialConnectionGraph* TutorialRepGraph = Cast<UTutorialConnectionGraph>(ConnectionManager);
+	UTutorialConnectionManager* TutorialRepGraph = Cast<UTutorialConnectionManager>(ConnectionManager);
 
 	if (ensure(TutorialRepGraph))
 	{
@@ -180,7 +180,7 @@ void UTutorialRepGraph::RemoveClientConnection(UNetConnection* NetConnection)
 	{
 		for (int32 idx = 0; idx < List.Num(); ++idx)
 		{
-			UTutorialConnectionGraph* ConnectionManager = Cast<UTutorialConnectionGraph>(Connections[idx]);
+			UTutorialConnectionManager* ConnectionManager = Cast<UTutorialConnectionManager>(Connections[idx]);
 			repCheck(ConnectionManager);
 
 			if (ConnectionManager->NetConnection == NetConnection)
@@ -219,11 +219,11 @@ void UTutorialRepGraph::ResetGameWorldState()
 	{
 		for (UNetReplicationGraphConnection* GraphConnection : GraphConnections)
 		{
-			if (const UTutorialConnectionGraph* TutorialConnectionGraph = Cast<UTutorialConnectionGraph>(GraphConnection))
+			if (const UTutorialConnectionManager* TutorialConnectionManager = Cast<UTutorialConnectionManager>(GraphConnection))
 			{
 				// Clear out all always relevant actors
 				// Seamless travel means that the team connections will still be relevant due to the controllers not being destroyed
-				TutorialConnectionGraph->AlwaysRelevantForConnectionNode->NotifyResetAllNetworkActors();
+				TutorialConnectionManager->AlwaysRelevantForConnectionNode->NotifyResetAllNetworkActors();
 			}
 		}
 	};
@@ -241,19 +241,19 @@ void UTutorialRepGraph::RouteAddNetworkActorToNodes(const FNewReplicatedActorInf
 		AlwaysRelevantNode->NotifyAddNetworkActor(ActorInfo);
 	}
 	// If not we see if it belongs to a connection
-	else if (UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
+	else if (UTutorialConnectionManager* ConnectionManager = GetTutorialConnectionManagerFromActor(ActorInfo.GetActor()))
 	{
 		if (ActorInfo.Actor->bOnlyRelevantToOwner)
 		{
-			ConnectionGraph->AlwaysRelevantForConnectionNode->NotifyAddNetworkActor(ActorInfo);
+			ConnectionManager->AlwaysRelevantForConnectionNode->NotifyAddNetworkActor(ActorInfo);
 		}
 		else
 		{
-			ConnectionGraph->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
+			ConnectionManager->TeamConnectionNode->NotifyAddNetworkActor(ActorInfo);
 
 			if (APawn* Pawn = Cast<APawn>(ActorInfo.GetActor()))
 			{
-				ConnectionGraph->Pawn = Pawn;
+				ConnectionManager->Pawn = Pawn;
 			}
 		}
 	}
@@ -270,15 +270,15 @@ void UTutorialRepGraph::RouteRemoveNetworkActorToNodes(const FNewReplicatedActor
 	{
 		AlwaysRelevantNode->NotifyRemoveNetworkActor(ActorInfo);
 	}
-	else if (const UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(ActorInfo.GetActor()))
+	else if (const UTutorialConnectionManager* ConnectionManager = GetTutorialConnectionManagerFromActor(ActorInfo.GetActor()))
 	{
 		if (ActorInfo.Actor->bOnlyRelevantToOwner)
 		{
-			ConnectionGraph->AlwaysRelevantForConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
+			ConnectionManager->AlwaysRelevantForConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
 		}
 		else
 		{
-			ConnectionGraph->TeamConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
+			ConnectionManager->TeamConnectionNode->NotifyRemoveNetworkActor(ActorInfo);
 		}
 	}
 	else if (ActorInfo.Actor->GetNetOwner())
@@ -291,23 +291,23 @@ void UTutorialRepGraph::SetTeamForPlayerController(APlayerController* PlayerCont
 {
 	if (PlayerController)
 	{
-		if (UTutorialConnectionGraph* ConnectionGraph = GetTutorialConnectionGraphFromActor(PlayerController))
+		if (UTutorialConnectionManager* ConnectionManager = GetTutorialConnectionManagerFromActor(PlayerController))
 		{
-			const int32 CurrentTeam = ConnectionGraph->Team;
+			const int32 CurrentTeam = ConnectionManager->Team;
 			if (CurrentTeam != Team)
 			{
 				// Remove the connection to the old team list
 				if (CurrentTeam != -1)
 				{
-					TeamConnectionListMap.RemoveConnectionFromTeam(CurrentTeam, ConnectionGraph);
+					TeamConnectionListMap.RemoveConnectionFromTeam(CurrentTeam, ConnectionManager);
 				}
 
 				// Add the graph to the new team list
 				if (Team != -1)
 				{
-					TeamConnectionListMap.AddConnectionToTeam(Team, ConnectionGraph);
+					TeamConnectionListMap.AddConnectionToTeam(Team, ConnectionManager);
 				}
-				ConnectionGraph->Team = Team;
+				ConnectionManager->Team = Team;
 			}
 		}
 		else
@@ -350,15 +350,15 @@ void UTutorialRepGraph::HandlePendingActorsAndTeamRequests()
 	}
 }
 
-UTutorialConnectionGraph* UTutorialRepGraph::GetTutorialConnectionGraphFromActor(const AActor* Actor)
+UTutorialConnectionManager* UTutorialRepGraph::GetTutorialConnectionManagerFromActor(const AActor* Actor)
 {
 	if (Actor)
 	{
 		if (UNetConnection* NetConnection = Actor->GetNetConnection())
 		{
-			if (UTutorialConnectionGraph* ConnectionGraph = Cast<UTutorialConnectionGraph>(FindOrAddConnectionManager(NetConnection)))
+			if (UTutorialConnectionManager* ConnectionManager = Cast<UTutorialConnectionManager>(FindOrAddConnectionManager(NetConnection)))
 			{
-				return ConnectionGraph;
+				return ConnectionManager;
 			}
 		}
 	}

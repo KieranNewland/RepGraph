@@ -24,7 +24,7 @@ class UReplicationGraphNode_AlwaysRelevant_ForTeam : public UReplicationGraphNod
 };
 
 UCLASS()
-class UTutorialConnectionGraph : public UNetReplicationGraphConnection
+class UTutorialConnectionManager : public UNetReplicationGraphConnection
 {
 	GENERATED_BODY()
 
@@ -41,13 +41,13 @@ public:
 	TWeakObjectPtr<APawn> Pawn = nullptr;
 };
 
-struct FTeamConnectionListMap : TMap<int32, TArray<UTutorialConnectionGraph*>>
+struct FTeamConnectionListMap : TMap<int32, TArray<UTutorialConnectionManager*>>
 {
-	TArray<UTutorialConnectionGraph*>* GetConnectionArrayForTeam(int32 Team);
-	TArray<UTutorialConnectionGraph*> GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team);
+	TArray<UTutorialConnectionManager*>* GetConnectionArrayForTeam(int32 Team);
+	TArray<UTutorialConnectionManager*> GetVisibleConnectionArrayForNonTeam(const APawn* Pawn, int32 Team);
 	
-	void AddConnectionToTeam(int32 Team, UTutorialConnectionGraph* ConnManager);
-	void RemoveConnectionFromTeam(int32 Team, UTutorialConnectionGraph* ConnManager);
+	void AddConnectionToTeam(int32 Team, UTutorialConnectionManager* ConnManager);
+	void RemoveConnectionFromTeam(int32 Team, UTutorialConnectionManager* ConnManager);
 };
 
 UCLASS(Blueprintable)
@@ -81,5 +81,5 @@ private:
 	friend UReplicationGraphNode_AlwaysRelevant_ForTeam;
 	FTeamConnectionListMap TeamConnectionListMap;
 	
-	UTutorialConnectionGraph* GetTutorialConnectionGraphFromActor(const AActor* Actor);
+	UTutorialConnectionManager* GetTutorialConnectionManagerFromActor(const AActor* Actor);
 };
