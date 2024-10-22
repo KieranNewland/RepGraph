@@ -194,7 +194,7 @@ void UTutorialRepGraph::RemoveClientConnection(UNetConnection* NetConnection)
 				}
 
 				// Also remove it from the input list
-				List.RemoveAtSwap(idx, 1, false);
+				List.RemoveAtSwap(idx, 1, EAllowShrinking::No);
 				bFound = true;
 			}
 			else
